@@ -95,9 +95,10 @@ function sendMailAndChat(event, callback) {
             if(isSlack){
                 sendSlackMessage(
                     slackMessage,
-                    function(err, data){
-                        if(err){
-                            callback(err, null);
+                    function(data){
+                        console.log(JSON.stringify(data));
+                        if(data.statusCode!=200){
+                            callback(null, setResponse("{Email was sent, but there was an error sending to Slack. Error message: "+data.body));
                         }else{
                             callback(null, setResponse("An Email and Slack message was sent via Serverless!"));
                         }
