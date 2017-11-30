@@ -33,13 +33,13 @@ const slackChannel=config.get("slack", "channel");
 
 module.exports.contactMe = (event, context, callback) => {
 console.log(event.body);
-    sendMail(
+    sendMailAndChat(
         event,
         function (err, data) {
             if (err) {
                 callback(err, null);
             } else {
-                callback(null, setResponse(data));
+                callback(null, data);
             }
         }
     );
@@ -56,7 +56,7 @@ console.log(event.body);
  *  message
  * ]
  */
-function sendMail(event, callback) {
+function sendMailAndChat(event, callback) {
     var toEmail = config.get("email", "to");
     var transporter = nodemailer.createTransport(mg(auth));
 
@@ -70,7 +70,7 @@ function sendMail(event, callback) {
   Name: "+ message.name + " \
   Email: "+ message.email + " \
   Phone: "+ message.phone + " \
-  Message: "+ message.message + " \
+  \n\nMessage:\n\n "+ message.message + " \
   ";
     var mailOptions = {
         from: message.name + "<" + message.email + ">",
@@ -80,23 +80,32 @@ function sendMail(event, callback) {
         //You can use "text:" to send plain-text content. It's oldschool! 
         text: message.message
     };
-
+    var slackMessage = {
+        channel: slackChannel,
+        text: 'A new message has arrived via the Contact Form:\n'+mailOptions.text,
+    };
     /**
      * Sends mail via mailgun plugin/node-mailer
      */
-    transporter.sendMail(mailOptions, function (error, info) {
+    transporter.sendMail(mailOptions, function (error, data) {
         if (error) {
             callback(error, null);
         } else {
-            console.log(JSON.stringify(info));
-            //now do a callback to send Slack Message
+            console.log(JSON.stringify(data));
             if(isSlack){
-                
+                sendSlackMessage(
+                    slackMessage,
+                    function(err, data){
+                        if(err){
+                            callback(err, null);
+                        }else{
+                            callback(null, setResponse("An Email and Slack message was sent via Serverless!"));
+                        }
+                    }
+                )
             }else{
-                callback(null, info);
+                callback(null, setResponse("An Email message was sent via Serverless!"));
             }
-
-            
         }
     });
 
@@ -108,8 +117,33 @@ function sendMail(event, callback) {
  * @param array event 
  * @param function callback 
  */
-function sendSlackMessage(event, callback){
+function sendSlackMessage(slackMessage, callback){
+    var body = JSON.stringify(slackMessage);
+    var options = url.parse(slackHook);
+    options.method = 'POST';
+    options.headers = {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+    };
 
+    const postReq = https.request(options, (res) => {
+        const chunks = [];
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+            if (callback) {
+                callback({
+                    body: chunks.join(''),
+                    statusCode: res.statusCode,
+                    statusMessage: res.statusMessage,
+                });
+            }
+        });
+        return res;
+    });
+
+    postReq.write(body);
+    postReq.end();
 }
 
 /*

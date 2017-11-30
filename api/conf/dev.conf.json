@@ -2,8 +2,7 @@
     "email": {
         "to": "kiwifellows@gmail.com",
         "auth_key" : "key-74027bb878a58fe0664b675768bce872",
-        "domain" : "apptest.site",
-        "slack" : "https://hooks.slack.com/services/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"
+        "domain" : "apptest.site"
     },
     "slack":{
         "url" : "https://hooks.slack.com/services/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",
